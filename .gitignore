@@ -33,3 +33,7 @@ Thumbs.db
 
 # Logs
 *.log
+
+# ML research notebook — raw dataset re-downloaded by the notebook itself
+ml-research/data/
+.ipynb_checkpoints/

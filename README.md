@@ -37,5 +37,20 @@ npm run dev
 ```
 Visit `http://localhost:5173`.
 
+### Offline ML notebook
+[`ml-research/offline_ddos_classifier.ipynb`](ml-research/offline_ddos_classifier.ipynb) —
+trains a Random Forest classifier on NSL-KDD (a labeled, flow-based intrusion-detection
+benchmark) to classify network traffic as benign vs. DoS/probe/R2L/U2R, and explains why the
+*live* system's risk scorer uses a different, simpler feature set (it has no packet/flow-level
+access — only AbuseIPDB's aggregated report metadata). Runs top-to-bottom on a fresh
+environment; downloads its own ~7MB of data on first run.
+```
+cd ml-research
+python -m venv venv
+./venv/Scripts/activate
+pip install -r requirements.txt
+jupyter notebook offline_ddos_classifier.ipynb
+```
+
 ## Status
 See "Current phase" in [`CLAUDE.md`](CLAUDE.md) for where the build currently stands.
