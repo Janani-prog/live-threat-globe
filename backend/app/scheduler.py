@@ -10,7 +10,7 @@ from app.db.models import ApiQuotaUsage, Event
 from app.db.session import get_session
 from app.geo.client import geolocate
 from app.geo.hashing import hash_ip
-from app.ingestion import abuseipdb, cloudflare_radar
+from app.ingestion import abuseipdb, cloudflare_radar, open_feeds
 from app.ml import scorer
 from app.realtime.manager import manager
 
@@ -23,6 +23,18 @@ CLOUDFLARE_POLL_MULTIPLIER = 5  # Radar data is aggregate/slow-moving, poll it l
 # it fast if the backlog is large. Guard it too, with headroom left over for
 # manual training pulls / dev testing on the same day.
 CHECK_DAILY_SAFE_MAX = 800
+
+# /blacklist's 5-req/day cap is shared across every consumer of the same
+# AbuseIPDB account key (local dev testing included), so it's realistic for
+# it to be exhausted before the live scheduler ever gets a call in on a
+# given day. When that happens (quota guard blocks the call, or the call
+# returns nothing new this cycle), fall back to the same free, non-rate-
+# limited feeds already proven for ML training data in Phase 2
+# (app/ingestion/open_feeds.py) so the live feed doesn't go fully quiet
+# just because one upstream endpoint's tiny quota is spent. Every candidate,
+# from either source, still gets real per-IP data from a real AbuseIPDB
+# /check call in run_drain_cycle — nothing here is synthetic.
+OPEN_FEED_FALLBACK_SIZE = 150
 
 # Backlog pattern: /blacklist can only be called a few times/day (quota-
 # guarded below), but each call can return a large batch. Queue newly-seen
@@ -58,35 +70,60 @@ def _try_consume_quota(session, column: str, safe_max: int) -> bool:
     return True
 
 
+def _queue_candidates(session, events: list) -> int:
+    """Dedupe against already-persisted events and append genuinely new ones
+    to the backlog. Shared by the /blacklist path and the open-feeds
+    fallback path below."""
+    queued = 0
+    for evt in events:
+        ip_hash = hash_ip(evt.ip)
+        already_seen = session.execute(select(Event.id).where(Event.ip_hash == ip_hash).limit(1)).first()
+        if already_seen:
+            continue
+        if len(_backlog) >= _MAX_BACKLOG:
+            logger.warning("Backlog full (%d) — dropping remaining candidates from this pull", _MAX_BACKLOG)
+            break
+        _backlog.append(evt)
+        queued += 1
+    return queued
+
+
 def run_blacklist_pull_cycle() -> int:
     """Pull a large batch from /blacklist (quota-guarded) and queue genuinely
-    new IPs into the in-memory backlog for run_drain_cycle to process.
+    new IPs into the in-memory backlog for run_drain_cycle to process. Falls
+    back to open_feeds when the quota guard blocks the call or the call
+    yields nothing new this cycle (see OPEN_FEED_FALLBACK_SIZE above).
     """
     session = get_session()
+    fallback_used = False
     try:
-        if not _try_consume_quota(session, "blacklist_calls", BLACKLIST_DAILY_SAFE_MAX):
+        queued = 0
+        if _try_consume_quota(session, "blacklist_calls", BLACKLIST_DAILY_SAFE_MAX):
+            events = abuseipdb.fetch_blacklist(limit=settings.blacklist_fetch_limit)
+            queued = _queue_candidates(session, events)
+        else:
             logger.warning(
-                "Blacklist daily quota guard hit (%d/day) — skipping pull until tomorrow (UTC)",
+                "Blacklist daily quota guard hit (%d/day) — falling back to open feeds for candidate discovery",
                 BLACKLIST_DAILY_SAFE_MAX,
             )
-            return 0
 
-        events = abuseipdb.fetch_blacklist(limit=settings.blacklist_fetch_limit)
-        queued = 0
-        for evt in events:
-            ip_hash = hash_ip(evt.ip)
-            already_seen = session.execute(select(Event.id).where(Event.ip_hash == ip_hash).limit(1)).first()
-            if already_seen:
-                continue
-            if len(_backlog) >= _MAX_BACKLOG:
-                logger.warning("Backlog full (%d) — dropping remaining candidates from this pull", _MAX_BACKLOG)
-                break
-            _backlog.append(evt)
-            queued += 1
+        if queued == 0:
+            candidate_ips = open_feeds.sample_candidate_ips(OPEN_FEED_FALLBACK_SIZE)
+            fallback_events = [
+                abuseipdb.NormalizedEvent(ip=ip, country=None, confidence_score=None, reported_at=None)
+                for ip in candidate_ips
+            ]
+            queued = _queue_candidates(session, fallback_events)
+            fallback_used = True
     finally:
         session.close()
 
-    logger.info("Blacklist pull queued %d new IP(s) (backlog size now %d)", queued, len(_backlog))
+    logger.info(
+        "Blacklist pull queued %d new IP(s) (backlog size now %d)%s",
+        queued,
+        len(_backlog),
+        " [open-feeds fallback]" if fallback_used else "",
+    )
     return queued
 
 
@@ -113,10 +150,19 @@ def run_drain_cycle() -> int:
 
         category_str = None
         risk_score = None
+        # /blacklist candidates arrive with their own confidence_score;
+        # open-feeds candidates (see run_blacklist_pull_cycle) don't, so
+        # prefer the real AbuseIPDB /check confidence when we have one —
+        # more accurate either way, and the only source at all for the
+        # open-feeds path.
+        confidence_source = evt.confidence_score
+        reported_at = evt.reported_at
         if _try_consume_quota(session, "check_calls", CHECK_DAILY_SAFE_MAX):
             check_result = abuseipdb.check_ip(evt.ip)
             if check_result is not None:
                 category_str = ",".join(str(c) for c in check_result.category_ids) or None
+                confidence_source = check_result.abuse_confidence_score
+                reported_at = check_result.last_reported_at or reported_at
                 risk_score = scorer.score(
                     total_reports=check_result.total_reports,
                     num_distinct_users=check_result.num_distinct_users,
@@ -137,9 +183,9 @@ def run_drain_cycle() -> int:
             country=country,
             asn=geo["asn"] if geo else None,
             category=category_str,
-            confidence_source=evt.confidence_score,
+            confidence_source=confidence_source,
             risk_score=risk_score,
-            reported_at=evt.reported_at,
+            reported_at=reported_at,
         )
         session.add(event_row)
         session.commit()
