@@ -1,0 +1,35 @@
+import datetime
+
+from sqlalchemy import DateTime, Float, Integer, String, func
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+
+
+class Base(DeclarativeBase):
+    pass
+
+
+class Event(Base):
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ip_hash: Mapped[str] = mapped_column(String(64), index=True, nullable=False)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    asn: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confidence_source: Mapped[float | None] = mapped_column(Float, nullable=True)
+    risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    reported_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    ingested_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class GeoCache(Base):
+    __tablename__ = "geo_cache"
+
+    ip_hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    lon: Mapped[float | None] = mapped_column(Float, nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    asn: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    last_checked_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
