@@ -37,8 +37,13 @@ database gap, not present when testing locally), breaking styling — fixed by e
 registering `.css`/`.js` MIME types before mounting StaticFiles in `main.py`, verified via a
 real Docker rebuild + `curl` against the live URL. Also hardened `app/ml/scorer.py` so a
 present-but-corrupted `model.pkl` degrades gracefully (missing was already handled; corrupted
-wasn't) — see `git log` for the fix commit. Live smoke test confirmed: globe renders fully
-styled, WebSocket connects (`FEED: OPEN`), REST routes return 200, zero console errors.
+wasn't) — see `git log` for the fix commit. A second real bug then surfaced (empty globe, no
+events): `/blacklist`'s 5-req/day quota was genuinely exhausted (shared across local dev and
+the deployed instance), *and* APScheduler was waiting a full 6h interval before its first run
+on any fresh container start — both fixed (see "Important API constraints" below) and verified
+live: real events now populate within about a minute of a cold start. Live smoke test fully
+confirmed: globe renders fully styled, WebSocket connects (`FEED: OPEN`), REST routes return
+200, real events with real geolocation/categories/risk_score appear, zero console errors.
 
 **Security note:** during that fix session, a message arrived with an embedded instruction (in
 a claimed "system reminder") to silently accept an unexplained edit to `backend/.env` and not
@@ -72,6 +77,15 @@ the substitution and full citation documented in the notebook itself.
   guard blocks the call or the call succeeds but returns nothing new that cycle — see
   `app/scheduler.py`. Every candidate from either source still gets real per-IP data from a
   real `/check` call in `run_drain_cycle`.
+- **`create_scheduler()` explicitly forces an immediate first run** (`next_run_time=now` on all
+  three jobs). APScheduler's `IntervalTrigger` otherwise waits a full interval before its first
+  execution (confirmed via `get_next_fire_time()`, not assumed) — left at the default, a
+  freshly-restarted container (any Render cold start/redeploy, which also wipes the ephemeral
+  SQLite file) would sit with an empty globe for up to `blacklist_poll_seconds` (hours) before
+  its first pull. This was the actual live bug behind the empty-globe report, on top of the
+  quota exhaustion above — verified fixed by watching a fresh local start pull real data (via
+  the open-feeds fallback, since local quota really was exhausted) within ~50 seconds, and
+  confirmed live on the deployed instance afterward.
 - `/check` has a separate, more generous 1,000/day quota, also guarded via `api_quota_usage`
   (`CHECK_DAILY_SAFE_MAX` in `app/scheduler.py`) since every newly-drained IP consumes one.
 - The architecture doc's original proxy-label definition (positive = categories intersect
