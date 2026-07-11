@@ -4,9 +4,9 @@ A live DDoS threat-intel visualization globe. Ingests public threat-intelligence
 (AbuseIPDB, Cloudflare Radar), geolocates and ML-scores reported IPs, and streams the
 results to a browser client rendered as an animated 3D globe with a live stats dashboard.
 
-**Live demo:** not yet deployed — see [Deployment](#deployment) below. The Dockerfile and
-Render blueprint are ready; deploying requires an account/credentials only the project owner
-has, so it's the one manual step left outside this repo's automation.
+**Live demo:** [cyberpulse-hj9l.onrender.com](https://cyberpulse-hj9l.onrender.com/) — free
+Render tier, so expect a cold-start delay on first load and an empty globe until the next
+`/blacklist` pull lands (see [Known trade-offs](#known-trade-offs-documented-not-hidden--per-the-prds-non-goals)).
 
 ![Demo](docs/demo.gif)
 
