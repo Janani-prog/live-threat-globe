@@ -33,3 +33,17 @@ class GeoCache(Base):
     country: Mapped[str | None] = mapped_column(String(64), nullable=True)
     asn: Mapped[str | None] = mapped_column(String(128), nullable=True)
     last_checked_at: Mapped[datetime.datetime] = mapped_column(DateTime, server_default=func.now())
+
+
+class ApiQuotaUsage(Base):
+    """Persisted call counter guarding AbuseIPDB's /blacklist endpoint, which
+    is capped at 5 requests/day on the free tier — confirmed live (a 429
+    with "Daily rate limit of 5 requests exceeded for this endpoint").
+    Persisted (not in-memory) so the guard survives process restarts.
+    """
+
+    __tablename__ = "api_quota_usage"
+
+    date: Mapped[str] = mapped_column(String(10), primary_key=True)  # YYYY-MM-DD (UTC)
+    blacklist_calls: Mapped[int] = mapped_column(Integer, default=0)
+    check_calls: Mapped[int] = mapped_column(Integer, default=0)

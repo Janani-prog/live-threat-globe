@@ -22,14 +22,33 @@ CyberPulse — a live DDoS threat-intel visualization globe. Full context lives 
 8. **Flag scope creep.** If a phase is ballooning beyond what its ticket describes, stop and tell me before continuing, rather than silently building a bigger feature than scoped.
 
 ## Current phase
-Phase 0 and Phase 1 are complete and committed. Next up: Phase 2 (ML live composite risk scorer).
+Phase 0 and Phase 1 are complete and committed. Phase 2 (ML live composite risk scorer) is
+**code-complete but the trained artifact is not yet generated** — blocked on an exhausted
+API quota, not on anything left to build. To finish Phase 2:
 
-Note for Phase 2: AbuseIPDB's bulk `/blacklist` endpoint (used in Phase 1) does not return
-category codes, total report count, or distinct-reporter count — confirmed against a live
-call. Those fields only come from the per-IP `/check?verbose` endpoint, which shares a much
-tighter free-tier quota. Phase 2's feature engineering must call `/check` only for newly-seen
-IPs (the ingestion cycle already diffs against already-seen `ip_hash`es), not the whole
-blacklist, to stay within quota.
+1. Wait until the `/blacklist` daily quota resets (2026-07-12 00:00 UTC — see below).
+2. From `backend/`, with `.env` populated: `./venv/Scripts/python.exe -m app.ml.training.train`
+3. This generates `app/ml/model.pkl` + `app/ml/model_card.md`. Review the model card's
+   held-out metrics and the model-vs-AbuseIPDB-confidence correlation note, then commit both
+   files as the final Phase 2 commit ("Phase 2: trained risk scorer artifact").
+4. Optionally re-run `scripts/run_ingest_once.py` afterward to confirm live events get a
+   populated, non-null `risk_score`.
+
+### Important API constraints discovered during Phase 1/2 (verified live, not assumed)
+- AbuseIPDB's bulk `/blacklist` endpoint does not return category codes, total report count,
+  or distinct-reporter count. Those only come from the per-IP `/check?verbose` endpoint.
+- **`/blacklist` is capped at 5 requests/day** on the free tier (confirmed via a live 429:
+  "Daily rate limit of 5 requests exceeded for this endpoint"). This is why the ingestion
+  pipeline (`app/scheduler.py`) is split into `run_blacklist_pull_cycle` (infrequent, quota-
+  guarded via the `api_quota_usage` table, default every 6h) and `run_drain_cycle` (fast
+  ~30s cadence, drains an in-memory backlog so the globe still animates between infrequent
+  source refreshes). Do not revert to polling `/blacklist` directly on the fast cadence.
+- `/check` has a separate, more generous 1,000/day quota, also guarded via `api_quota_usage`
+  (`CHECK_DAILY_SAFE_MAX` in `app/scheduler.py`) since every newly-drained IP consumes one.
+- The architecture doc's original proxy-label definition (positive = categories intersect
+  {DDoS(4), Port-Scan(14), Brute-Force(18)}) was reverted after a live pull showed it was
+  ~100% positive (18 and 14 are bundled onto nearly every AbuseIPDB report) — see
+  `app/ml/features.py` for the corrected definition (category 4 alone) and full rationale.
 
 ## Naming note
 "CyberPulse" is only an internal working title used in these docs/commit messages/repo folder name for organizational convenience. **The deployed product UI must not display any product name, logo, or wordmark** . Do not add a title/header/logo to the app itself just because the docs need a label to refer to the project by.
