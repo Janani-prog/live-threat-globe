@@ -22,9 +22,12 @@ CyberPulse — a live DDoS threat-intel visualization globe. Full context lives 
 8. **Flag scope creep.** If a phase is ballooning beyond what its ticket describes, stop and tell me before continuing, rather than silently building a bigger feature than scoped.
 
 ## Current phase
-Phase 0 and Phase 1 are complete and committed. Phase 2 (ML live composite risk scorer) is
-**code-complete but the trained artifact is not yet generated** — blocked on an exhausted
-API quota, not on anything left to build. To finish Phase 2:
+Phase 0, Phase 1, and Phase 3 (backend REST API + WebSocket) are complete and committed.
+Phase 2 (ML live composite risk scorer) is **code-complete but the trained artifact is not
+yet generated** — blocked on an exhausted API quota, not on anything left to build. The rest
+of the backend (Phase 3's routes, the WebSocket broadcaster, the drain cycle) already handles
+a missing/null `risk_score` gracefully by design, so this isn't blocking further work — Phase
+4 (frontend globe) can proceed before Phase 2's artifact lands. To finish Phase 2:
 
 1. Wait until the `/blacklist` daily quota resets (2026-07-12 00:00 UTC — see below).
 2. From `backend/`, with `.env` populated: `./venv/Scripts/python.exe -m app.ml.training.train`
