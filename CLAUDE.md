@@ -22,9 +22,13 @@ CyberPulse — a live DDoS threat-intel visualization globe. Full context lives 
 8. **Flag scope creep.** If a phase is ballooning beyond what its ticket describes, stop and tell me before continuing, rather than silently building a bigger feature than scoped.
 
 ## Current phase
-Phases 0, 1, 2, 3, 4, 5, 6, and 7 are all complete and committed. `app/ml/model.pkl` +
-`app/ml/model_card.md` exist and live events get a real, populated `risk_score`. Next up:
-Phase 8 (README/repo polish + resume framing).
+Phases 0 through 8 are all complete and committed — the core, non-stretch execution plan in
+`05_FEATURE_TICKETS.md` is done. `app/ml/model.pkl` + `app/ml/model_card.md` exist and live
+events get a real, populated `risk_score`. The README is resume-ready (problem statement,
+architecture diagram, real-time-vs-polled honesty table, ML does/doesn't-do section, demo
+GIF). Remaining work is the stretch phases (9-11: historical playback, admin config panel,
+country choropleth) — only pick these up if explicitly asked, per the ticket doc's own
+instruction that they're "only after Phase 8 is fully done."
 
 **Phase 7 has one manual step left that only the user can do:** create/connect a Render
 account and deploy via the Blueprint (`render.yaml`), filling in the `sync: false` secrets in
