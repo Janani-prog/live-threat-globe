@@ -7,10 +7,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { API_BASE_URL, WS_URL } from "../lib/apiConfig";
 import type { ThreatEvent } from "../lib/types";
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
-const WS_URL = import.meta.env.VITE_WS_URL ?? "ws://localhost:8000/ws/events";
 
 const MAX_EVENTS = 500;
 const BASE_RECONNECT_DELAY_MS = 1000;

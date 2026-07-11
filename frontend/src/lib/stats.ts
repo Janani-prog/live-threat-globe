@@ -1,3 +1,5 @@
+import { API_BASE_URL } from "./apiConfig";
+
 export interface CountBucket {
   key: string;
   count: number;
@@ -19,8 +21,6 @@ export interface TimeseriesPoint {
 export interface TimeseriesOut {
   points: TimeseriesPoint[];
 }
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
 export async function fetchStatsSummary(): Promise<StatsSummary | null> {
   try {

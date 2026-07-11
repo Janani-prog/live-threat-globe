@@ -24,6 +24,7 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 npm-debug.log*
+backend/static/
 
 # OS / editor
 .DS_Store

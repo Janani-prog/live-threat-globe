@@ -1,0 +1,37 @@
+# Secrets — never bake into the image
+.env
+**/.env
+*.env
+!.env.example
+
+# Git
+.git/
+.gitignore
+
+# Python
+**/__pycache__/
+**/*.py[cod]
+**/venv/
+**/.venv/
+**/*.egg-info/
+**/.pytest_cache/
+**/.mypy_cache/
+
+# Node
+**/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# SQLite (dev DBs, never ship data in the image)
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# ML research (not part of the deployed app)
+ml-research/
+
+# Misc
+**/.ipynb_checkpoints/
+**/*.log
+.vscode/
+.idea/
