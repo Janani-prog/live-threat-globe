@@ -226,12 +226,30 @@ def run_cloudflare_radar_cycle() -> None:
 def create_scheduler() -> AsyncIOScheduler:
     scheduler = AsyncIOScheduler()
     interval = settings.poll_interval_seconds
-    scheduler.add_job(run_blacklist_pull_cycle, "interval", seconds=settings.blacklist_poll_seconds, id="blacklist_pull")
-    scheduler.add_job(run_drain_cycle, "interval", seconds=interval, id="backlog_drain")
+
+    # APScheduler's IntervalTrigger fires its *first* execution after a full
+    # interval has elapsed, not immediately — confirmed by inspecting
+    # get_next_fire_time() directly, not assumed. Left at the default, a
+    # freshly-restarted container (any Render cold start or redeploy, which
+    # also wipes the ephemeral SQLite file) would sit with a completely
+    # empty globe for up to blacklist_poll_seconds (hours) before its first
+    # /blacklist-or-fallback pull, contradicting the architecture doc's
+    # "self-heal on wake" requirement. Force an immediate first run for all
+    # three jobs; they continue on their normal interval after that.
+    now = datetime.datetime.now(datetime.timezone.utc)
+    scheduler.add_job(
+        run_blacklist_pull_cycle,
+        "interval",
+        seconds=settings.blacklist_poll_seconds,
+        id="blacklist_pull",
+        next_run_time=now,
+    )
+    scheduler.add_job(run_drain_cycle, "interval", seconds=interval, id="backlog_drain", next_run_time=now)
     scheduler.add_job(
         run_cloudflare_radar_cycle,
         "interval",
         seconds=interval * CLOUDFLARE_POLL_MULTIPLIER,
         id="cloudflare_radar_poll",
+        next_run_time=now,
     )
     return scheduler
