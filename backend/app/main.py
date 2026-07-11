@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -72,6 +73,14 @@ app.include_router(realtime_router)
 # crashing the whole app on startup — the JSON API/WebSocket routes above
 # still work fine without it, this only affects serving the UI itself.
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+# Some minimal container base images / platform mimetypes databases don't
+# reliably map .css/.js -> a proper Content-Type, which can make StaticFiles
+# serve them as text/plain — browsers then refuse to apply the stylesheet or
+# execute the ES module script. Register these explicitly before mounting.
+mimetypes.add_type("text/css", ".css")
+mimetypes.add_type("application/javascript", ".js")
+
 if STATIC_DIR.is_dir():
     app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 else:

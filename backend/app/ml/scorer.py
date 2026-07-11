@@ -21,7 +21,14 @@ def _load():
         if not MODEL_PATH.exists():
             logger.warning("No trained model artifact at %s — risk scoring disabled", MODEL_PATH)
             return None
-        _artifact = joblib.load(MODEL_PATH)
+        try:
+            _artifact = joblib.load(MODEL_PATH)
+        except Exception:
+            # Present but corrupted/unreadable/incompatible (bad checkout,
+            # partial write, sklearn version mismatch) — degrade the same
+            # way a missing file does rather than raising into a caller.
+            logger.exception("Failed to load model artifact at %s — risk scoring disabled", MODEL_PATH)
+            return None
     return _artifact
 
 
