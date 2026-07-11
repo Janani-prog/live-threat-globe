@@ -23,8 +23,19 @@ CyberPulse — a live DDoS threat-intel visualization globe. Full context lives 
 
 ## Current phase
 Phase 0, Phase 1, Phase 3 (backend REST API + WebSocket), Phase 4 (frontend globe +
-real-time feed), Phase 5 (stats dashboard + polish), and Phase 6 (offline ML showcase
-notebook) are complete and committed. Next up: Phase 7 (deployment: Dockerfile, Render/Fly).
+real-time feed), Phase 5 (stats dashboard + polish), Phase 6 (offline ML showcase notebook),
+and Phase 7 (Dockerfile + Render blueprint, verified locally) are complete and committed.
+
+**Phase 7 has one manual step left that only the user can do:** create/connect a Render
+account and deploy via the Blueprint (`render.yaml`), filling in the `sync: false` secrets in
+Render's dashboard. Everything else — Dockerfile, single-service static serving, mixed-content/
+WSS handling, cold-start/ephemeral-filesystem documentation — is done and verified with a real
+local `docker build && docker run`. Once deployed, do the actual smoke test from the ticket
+(open the public URL cold, confirm the globe loads and the WebSocket connects) and update this
+section.
+
+Next up: Phase 8 (README/repo polish + resume framing) — can proceed before the live deploy
+smoke test happens, since it's mostly independent.
 
 Note for Phase 6 (dataset substitution): the ticket specified CICDDoS2019, but that dataset
 is access-gated (UNB registration form or Kaggle credentials, neither a plain anonymous
