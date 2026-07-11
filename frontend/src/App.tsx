@@ -4,6 +4,8 @@ import { EventDetailPanel } from "./components/EventDetailPanel";
 import { GlobeView } from "./components/GlobeView";
 import { RightToolbar } from "./components/RightToolbar";
 import { StatsDashboard } from "./components/StatsDashboard";
+import { SystemDiagnostics } from "./components/SystemDiagnostics";
+import { ThreatMatrix } from "./components/ThreatMatrix";
 import { TopBar } from "./components/TopBar";
 import { GlobeControlsProvider } from "./context/GlobeControlsContext";
 import { StatsProvider } from "./context/StatsContext";
@@ -22,12 +24,14 @@ function App() {
             <TopBar view={view} onChangeView={setView} />
             {view === "map" && (
               <>
+                <ThreatMatrix />
                 <RightToolbar />
                 <EventDetailPanel />
               </>
             )}
             {view === "stats" && <StatsDashboard />}
             <BottomLegend />
+            <SystemDiagnostics />
           </div>
         </GlobeControlsProvider>
       </StatsProvider>

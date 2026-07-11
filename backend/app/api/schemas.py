@@ -13,6 +13,7 @@ class EventOut(BaseModel):
     country: str | None
     asn: str | None
     category: str | None
+    source: str | None
     confidence_source: float | None
     risk_score: float | None
     reported_at: datetime.datetime | None

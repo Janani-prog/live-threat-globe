@@ -18,6 +18,9 @@ class Event(Base):
     country: Mapped[str | None] = mapped_column(String(64), nullable=True)
     asn: Mapped[str | None] = mapped_column(String(128), nullable=True)
     category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Real discovery provenance (e.g. "AbuseIPDB", "Blocklist.de",
+    # "CINS Army") — which feed actually returned this candidate IP.
+    source: Mapped[str | None] = mapped_column(String(32), nullable=True)
     confidence_source: Mapped[float | None] = mapped_column(Float, nullable=True)
     risk_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     reported_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)

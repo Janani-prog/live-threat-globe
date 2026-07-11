@@ -26,13 +26,18 @@ def test_blacklist_pull_falls_back_to_open_feeds_when_quota_exhausted(monkeypatc
         raise AssertionError("fetch_blacklist should not be called once the quota guard blocks it")
 
     monkeypatch.setattr(abuseipdb, "fetch_blacklist", fail_if_called)
-    monkeypatch.setattr(scheduler.open_feeds, "sample_candidate_ips", lambda n, seed=None: ["9.9.9.9", "8.8.4.4"])
+    monkeypatch.setattr(
+        scheduler.open_feeds,
+        "sample_candidate_ips_with_source",
+        lambda n, seed=None: [("9.9.9.9", "Blocklist.de"), ("8.8.4.4", "CINS Army")],
+    )
 
     queued = scheduler.run_blacklist_pull_cycle()
 
     assert queued == 2
     assert len(scheduler._backlog) == 2
     assert {e.ip for e in scheduler._backlog} == {"9.9.9.9", "8.8.4.4"}
+    assert {e.source for e in scheduler._backlog} == {"Blocklist.de", "CINS Army"}
     _reset_backlog()
 
 
@@ -46,10 +51,13 @@ def test_blacklist_pull_falls_back_when_blacklist_returns_nothing_new(monkeypatc
     monkeypatch.setattr(scheduler, "_today", lambda: "2099-01-01")
 
     monkeypatch.setattr(abuseipdb, "fetch_blacklist", lambda **kwargs: [])
-    monkeypatch.setattr(scheduler.open_feeds, "sample_candidate_ips", lambda n, seed=None: ["1.2.3.4"])
+    monkeypatch.setattr(
+        scheduler.open_feeds, "sample_candidate_ips_with_source", lambda n, seed=None: [("1.2.3.4", "CINS Army")]
+    )
 
     queued = scheduler.run_blacklist_pull_cycle()
 
     assert queued == 1
     assert scheduler._backlog[0].ip == "1.2.3.4"
+    assert scheduler._backlog[0].source == "CINS Army"
     _reset_backlog()

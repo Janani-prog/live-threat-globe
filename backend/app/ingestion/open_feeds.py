@@ -30,6 +30,12 @@ logger = logging.getLogger(__name__)
 BLOCKLIST_DE_URL = "https://lists.blocklist.de/lists/all.txt"
 CINSSCORE_URL = "http://cinsscore.com/list/ci-badguys.txt"
 
+# Human-readable source labels, used both for logging and (via scheduler.py)
+# surfaced to the frontend so the UI can show a real provenance label per
+# event rather than a hardcoded/fabricated one.
+BLOCKLIST_DE_LABEL = "Blocklist.de"
+CINSSCORE_LABEL = "CINS Army"
+
 
 def _fetch_ip_list(url: str) -> list[str]:
     try:
@@ -47,16 +53,27 @@ def _fetch_ip_list(url: str) -> list[str]:
     return ips
 
 
-def sample_candidate_ips(n: int, seed: int | None = None) -> list[str]:
+def sample_candidate_ips_with_source(n: int, seed: int | None = None) -> list[tuple[str, str]]:
     """Fetch and combine Blocklist.de + CINSScore, dedupe, and return a
-    random sample of up to n IPs (mixed across both sources for diversity).
+    random sample of up to n (ip, source_label) pairs (mixed across both
+    sources for diversity). The source label is real provenance, not a
+    display placeholder — it reflects which feed actually returned the IP.
     """
-    blocklist_de = _fetch_ip_list(BLOCKLIST_DE_URL)
-    cinsscore = _fetch_ip_list(CINSSCORE_URL)
+    blocklist_de = [(ip, BLOCKLIST_DE_LABEL) for ip in _fetch_ip_list(BLOCKLIST_DE_URL)]
+    cinsscore = [(ip, CINSSCORE_LABEL) for ip in _fetch_ip_list(CINSSCORE_URL)]
 
-    combined = list(dict.fromkeys(blocklist_de + cinsscore))  # dedupe, keep order
+    combined_map: dict[str, str] = {}
+    for ip, label in blocklist_de + cinsscore:
+        combined_map.setdefault(ip, label)  # first source wins on duplicate IP
+    combined = list(combined_map.items())
     logger.info("Combined open-feed candidate pool: %d unique IPs", len(combined))
 
     rng = random.Random(seed)
     rng.shuffle(combined)
     return combined[:n]
+
+
+def sample_candidate_ips(n: int, seed: int | None = None) -> list[str]:
+    """Backward-compatible plain-IP variant, used by the ML training
+    pipeline (app/ml/training/train.py), which doesn't need provenance."""
+    return [ip for ip, _label in sample_candidate_ips_with_source(n, seed)]

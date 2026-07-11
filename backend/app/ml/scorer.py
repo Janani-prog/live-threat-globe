@@ -32,6 +32,19 @@ def _load():
     return _artifact
 
 
+def status() -> dict:
+    """Real model-loaded status for the diagnostics endpoint — introspects
+    whatever _load() actually resolves to (or fails to), rather than a
+    hardcoded "loaded" string that would keep claiming success even if the
+    artifact were missing or corrupted (see the try/except in _load()).
+    """
+    artifact = _load()
+    if artifact is None:
+        return {"loaded": False, "model_type": None}
+    model_type = type(artifact["pipeline"].named_steps["clf"]).__name__
+    return {"loaded": True, "model_type": model_type}
+
+
 def score(
     total_reports: int,
     num_distinct_users: int,

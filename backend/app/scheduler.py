@@ -108,10 +108,10 @@ def run_blacklist_pull_cycle() -> int:
             )
 
         if queued == 0:
-            candidate_ips = open_feeds.sample_candidate_ips(OPEN_FEED_FALLBACK_SIZE)
+            candidates = open_feeds.sample_candidate_ips_with_source(OPEN_FEED_FALLBACK_SIZE)
             fallback_events = [
-                abuseipdb.NormalizedEvent(ip=ip, country=None, confidence_score=None, reported_at=None)
-                for ip in candidate_ips
+                abuseipdb.NormalizedEvent(ip=ip, country=None, confidence_score=None, reported_at=None, source=src)
+                for ip, src in candidates
             ]
             queued = _queue_candidates(session, fallback_events)
             fallback_used = True
@@ -183,6 +183,7 @@ def run_drain_cycle() -> int:
             country=country,
             asn=geo["asn"] if geo else None,
             category=category_str,
+            source=evt.source,
             confidence_source=confidence_source,
             risk_score=risk_score,
             reported_at=reported_at,
@@ -200,6 +201,7 @@ def run_drain_cycle() -> int:
             "country": event_row.country,
             "asn": event_row.asn,
             "category": event_row.category,
+            "source": event_row.source,
             "confidence_source": event_row.confidence_source,
             # May be None if no trained model exists yet or the /check quota
             # guard was hit — the WebSocket payload serializes this as JSON

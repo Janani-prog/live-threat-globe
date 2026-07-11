@@ -8,6 +8,10 @@ export interface ThreatEvent {
   /** Comma-separated AbuseIPDB category IDs, e.g. "4,14,18" — or null if
    * the /check quota guard was hit before this event could be enriched. */
   category: string | null;
+  /** Real discovery provenance — which feed actually returned this IP
+   * ("AbuseIPDB", "Blocklist.de", "CINS Army"). Null for events ingested
+   * before this field existed. */
+  source: string | null;
   /** AbuseIPDB's own confidence score (0-100), independent of risk_score. */
   confidence_source: number | null;
   /** Model-derived 0-100 DDoS-relevance score. Null until the Phase 2

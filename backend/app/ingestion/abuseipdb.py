@@ -19,11 +19,21 @@ _last_check_at = 0.0
 
 
 class NormalizedEvent:
-    def __init__(self, ip: str, country: str | None, confidence_score: float, reported_at: datetime.datetime | None):
+    def __init__(
+        self,
+        ip: str,
+        country: str | None,
+        confidence_score: float | None,
+        reported_at: datetime.datetime | None,
+        source: str = "AbuseIPDB",
+    ):
         self.ip = ip
         self.country = country
         self.confidence_score = confidence_score
         self.reported_at = reported_at
+        # Real discovery provenance (which feed actually returned this IP),
+        # surfaced to the frontend — not a display placeholder.
+        self.source = source
 
 
 def fetch_blacklist(limit: int = 100, confidence_minimum: int = 75) -> list[NormalizedEvent]:

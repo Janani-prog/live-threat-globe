@@ -10,6 +10,17 @@ def test_health(client):
     assert r.json() == {"status": "ok"}
 
 
+def test_health_pipeline_reflects_real_state(client):
+    """ENABLE_SCHEDULER=false in tests (see conftest.py), so this must
+    honestly report the scheduler as inactive — not a hardcoded "active"."""
+    r = client.get("/health/pipeline")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["ingestion_engine"]["active"] is False
+    assert body["ml_classifier"]["loaded"] is True
+    assert body["ml_classifier"]["model_type"] == "LogisticRegression"
+
+
 def test_events_recent_empty(client):
     r = client.get("/events/recent")
     assert r.status_code == 200
