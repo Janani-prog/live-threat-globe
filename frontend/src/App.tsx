@@ -1,9 +1,18 @@
+import { ConnectionBadge } from "./components/ConnectionBadge";
+import { EventDetailPanel } from "./components/EventDetailPanel";
+import { GlobeView } from "./components/GlobeView";
+import { ThreatFeedProvider } from "./context/ThreatFeedContext";
+
 function App() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-black text-emerald-300">
-      <p className="text-sm tracking-widest uppercase">CyberPulse — frontend scaffold online</p>
-    </div>
-  )
+    <ThreatFeedProvider>
+      <div className="relative h-screen w-screen bg-black overflow-hidden">
+        <GlobeView />
+        <ConnectionBadge />
+        <EventDetailPanel />
+      </div>
+    </ThreatFeedProvider>
+  );
 }
 
-export default App
+export default App;

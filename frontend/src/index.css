@@ -1,4 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
+
+/* Design tokens pulled from the connected Stitch MCP design system
+   ("Terminal Protocol") — Brutalist-Cybernetic dark theme, true-black base,
+   neon cyan/magenta/blue accents, JetBrains Mono throughout, sharp corners. */
+@theme {
+  --font-mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+
+  --color-background: #131313;
+  --color-on-background: #e5e2e1;
+  --color-surface-container-lowest: #0e0e0e;
+  --color-surface-container-low: #1c1b1b;
+  --color-surface-container: #20201f;
+  --color-surface-container-high: #2a2a2a;
+  --color-on-surface: #e5e2e1;
+  --color-on-surface-variant: #b9cbc1;
+  --color-outline: #83958c;
+  --color-outline-variant: #3a4a43;
+
+  --color-primary: #fbfffa;
+  --color-primary-fixed-dim: #00e1ab;
+  --color-primary-container: #00ffc2;
+  --color-on-primary: #003828;
+
+  --color-secondary: #ffabf3;
+  --color-secondary-container: #fe00fe;
+  --color-on-secondary: #5b005b;
+
+  --color-tertiary: #fcfeff;
+  --color-tertiary-fixed-dim: #00daf8;
+  --color-tertiary-container: #9fedff;
+  --color-on-tertiary: #00363f;
+
+  --color-error: #ffb4ab;
+  --color-error-container: #93000a;
+
+  --radius-none: 0px;
+}
 
 :root {
   color-scheme: dark;
@@ -6,7 +44,16 @@
 
 body {
   margin: 0;
-  background: #0a0a0a;
-  color: #e5e2e1;
-  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+  background: #000;
+  overflow: hidden;
+  color: var(--color-on-background);
+  font-family: var(--font-mono);
+}
+
+/* "HUD panel" glass style used throughout the Stitch design for floating
+   panels — semi-transparent dark surface + backdrop blur + 1px outline. */
+.hud-panel {
+  background-color: rgba(26, 26, 26, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid var(--color-outline-variant);
 }
