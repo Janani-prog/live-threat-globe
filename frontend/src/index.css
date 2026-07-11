@@ -1,0 +1,12 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: #0a0a0a;
+  color: #e5e2e1;
+  font-family: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+}
