@@ -1,0 +1,32 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+#
+# This makes deployment mostly a few clicks: in the Render dashboard, choose
+# "New +" -> "Blueprint", connect this repo, and Render reads this file.
+# Env vars marked `sync: false` are secrets/config Render will prompt you to
+# fill in yourself in the dashboard — they are never read from this file or
+# committed anywhere (Security & Access doc section 2).
+services:
+  - type: web
+    name: cyberpulse
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ABUSEIPDB_API_KEY
+        sync: false
+      - key: CLOUDFLARE_RADAR_API_TOKEN
+        sync: false
+      - key: IPINFO_API_KEY
+        sync: false
+      - key: IP_HASH_SALT
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: ENVIRONMENT
+        value: production
+      - key: INGEST_POLL_INTERVAL_SECONDS
+        value: "30"
+      - key: BLACKLIST_POLL_INTERVAL_SECONDS
+        value: "21600"
