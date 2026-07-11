@@ -1,30 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Globe, { type GlobeMethods } from "react-globe.gl";
 import * as THREE from "three";
+import { DEFAULT_POV, useGlobeControls } from "../context/GlobeControlsContext";
 import { useThreatFeed } from "../context/ThreatFeedContext";
+import { RISK_COLORS, riskColor } from "../lib/risk";
 import type { ThreatEvent } from "../lib/types";
-
-// Neon accents from the Stitch "Terminal Protocol" design system.
-const NEON_MAGENTA = "#fe00fe"; // high risk
-const NEON_CYAN = "#00e1ab"; // medium risk
-const NEON_BLUE = "#00daf8"; // low risk
-// risk_score is frequently null (Phase 2's model artifact is still
-// pending) — render unscored points in a dim neutral outline color rather
-// than guessing, crashing, or defaulting into one of the risk buckets.
-const UNSCORED_GRAY = "#83958c";
 
 interface GlobePoint extends ThreatEvent {
   lat: number;
   lng: number;
   color: string;
   radius: number;
-}
-
-function colorForEvent(event: ThreatEvent): string {
-  if (event.risk_score === null || event.risk_score === undefined) return UNSCORED_GRAY;
-  if (event.risk_score >= 66) return NEON_MAGENTA;
-  if (event.risk_score >= 33) return NEON_CYAN;
-  return NEON_BLUE;
 }
 
 function radiusForEvent(event: ThreatEvent): number {
@@ -37,6 +23,7 @@ function radiusForEvent(event: ThreatEvent): number {
 
 export function GlobeView() {
   const { events, selectEvent } = useThreatFeed();
+  const { registerGlobe, autoRotate } = useGlobeControls();
   const globeRef = useRef<GlobeMethods | undefined>(undefined);
   const [dimensions, setDimensions] = useState({
     width: window.innerWidth,
@@ -50,6 +37,14 @@ export function GlobeView() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+    const controls = globe.controls();
+    controls.autoRotate = autoRotate;
+    controls.autoRotateSpeed = 0.4;
+  }, [autoRotate]);
 
   // Dark, near-black sphere (no earth texture) to match the Stitch mockup's
   // custom three.js globe, rather than react-globe.gl's default photo texture.
@@ -72,7 +67,7 @@ export function GlobeView() {
           ...e,
           lat: e.lat,
           lng: e.lon,
-          color: colorForEvent(e),
+          color: riskColor(e.risk_score),
           radius: radiusForEvent(e),
         })),
     [events],
@@ -88,7 +83,7 @@ export function GlobeView() {
       globeMaterial={globeMaterial}
       showGraticules
       showAtmosphere
-      atmosphereColor={NEON_CYAN}
+      atmosphereColor={RISK_COLORS.medium}
       atmosphereAltitude={0.18}
       pointsData={points}
       pointLat="lat"
@@ -105,6 +100,10 @@ export function GlobeView() {
       onPointClick={(point) => selectEvent(point as GlobePoint)}
       showPointerCursor
       enablePointerInteraction
+      onGlobeReady={() => {
+        registerGlobe(globeRef.current);
+        globeRef.current?.pointOfView(DEFAULT_POV, 0);
+      }}
     />
   );
 }

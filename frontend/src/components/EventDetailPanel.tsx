@@ -1,15 +1,14 @@
 import { useThreatFeed } from "../context/ThreatFeedContext";
 import { parseCategories } from "../lib/categories";
+import { riskTier, type RiskTier } from "../lib/risk";
 import type { ThreatEvent } from "../lib/types";
 
-function riskTier(score: number | null): { label: string; className: string } {
-  if (score === null || score === undefined) {
-    return { label: "UNSCORED", className: "text-outline border-outline" };
-  }
-  if (score >= 66) return { label: "HIGH", className: "text-secondary-container border-secondary-container" };
-  if (score >= 33) return { label: "MEDIUM", className: "text-primary-fixed-dim border-primary-fixed-dim" };
-  return { label: "LOW", className: "text-tertiary-fixed-dim border-tertiary-fixed-dim" };
-}
+const TIER_BADGE: Record<RiskTier, { label: string; className: string }> = {
+  unscored: { label: "UNSCORED", className: "text-outline border-outline" },
+  high: { label: "HIGH", className: "text-secondary-container border-secondary-container" },
+  medium: { label: "MEDIUM", className: "text-primary-fixed-dim border-primary-fixed-dim" },
+  low: { label: "LOW", className: "text-tertiary-fixed-dim border-tertiary-fixed-dim" },
+};
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
@@ -28,7 +27,7 @@ export function EventDetailPanel() {
 
   const event: ThreatEvent = selectedEvent;
   const categories = parseCategories(event.category);
-  const tier = riskTier(event.risk_score);
+  const tier = TIER_BADGE[riskTier(event.risk_score)];
   const hasScore = event.risk_score !== null && event.risk_score !== undefined;
   const hasConfidence = event.confidence_source !== null && event.confidence_source !== undefined;
 
