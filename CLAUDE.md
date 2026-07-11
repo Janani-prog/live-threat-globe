@@ -23,8 +23,14 @@ CyberPulse — a live DDoS threat-intel visualization globe. Full context lives 
 
 ## Current phase
 Phase 0, Phase 1, Phase 3 (backend REST API + WebSocket), Phase 4 (frontend globe +
-real-time feed), and Phase 5 (stats dashboard + polish) are complete and committed. Next up:
-Phase 6 (offline ML showcase notebook in `/ml-research`), independent of Phase 2's live model.
+real-time feed), Phase 5 (stats dashboard + polish), and Phase 6 (offline ML showcase
+notebook) are complete and committed. Next up: Phase 7 (deployment: Dockerfile, Render/Fly).
+
+Note for Phase 6 (dataset substitution): the ticket specified CICDDoS2019, but that dataset
+is access-gated (UNB registration form or Kaggle credentials, neither a plain anonymous
+download) — confirmed live, not assumed. Per user's choice, `ml-research/offline_ddos_classifier.ipynb`
+uses **NSL-KDD** instead (genuinely open, verified download, DoS/probe/R2L/U2R labeled), with
+the substitution and full citation documented in the notebook itself.
 
 Phase 2 (ML live composite risk scorer) is **code-complete but the trained artifact is not
 yet generated** — blocked on an exhausted API quota, not on anything left to build. The rest
