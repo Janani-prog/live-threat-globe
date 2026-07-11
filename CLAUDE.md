@@ -63,6 +63,15 @@ the substitution and full citation documented in the notebook itself.
   guarded via the `api_quota_usage` table, default every 6h) and `run_drain_cycle` (fast
   ~30s cadence, drains an in-memory backlog so the globe still animates between infrequent
   source refreshes). Do not revert to polling `/blacklist` directly on the fast cadence.
+- **The `/blacklist` quota is per-account, shared across every consumer of the same API key**
+  — including local dev/testing, not just the deployed instance. This isn't hypothetical: it's
+  what actually caused the live globe to sit empty after the first real deploy (local Phase 1/2
+  testing had already spent the day's 5 calls before the deployed scheduler got a turn).
+  `run_blacklist_pull_cycle` now falls back to `open_feeds.sample_candidate_ips()` (same
+  Blocklist.de + CINS Army feeds Phase 2 uses for training, free/unlimited) whenever the quota
+  guard blocks the call or the call succeeds but returns nothing new that cycle — see
+  `app/scheduler.py`. Every candidate from either source still gets real per-IP data from a
+  real `/check` call in `run_drain_cycle`.
 - `/check` has a separate, more generous 1,000/day quota, also guarded via `api_quota_usage`
   (`CHECK_DAILY_SAFE_MAX` in `app/scheduler.py`) since every newly-drained IP consumes one.
 - The architecture doc's original proxy-label definition (positive = categories intersect

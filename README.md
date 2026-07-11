@@ -64,6 +64,9 @@ visualization, and pragmatic full-stack architecture under real free-tier constr
                               Browser client (WebSocket + REST)
                               react-globe.gl + Recharts, dark neon-terminal UI
 ```
+*(`blacklist_pull_cycle` also falls back to Blocklist.de + CINS Army — free, unlimited feeds —
+whenever `/blacklist`'s 5-req/day quota is exhausted, which happens in practice since that
+quota is shared across every consumer of the same API key. See the table below.)*
 
 - `backend/` — FastAPI app: ingestion pipeline, ML scorer, REST + WebSocket API
 - `frontend/` — Vite + React + Tailwind client: globe visualization + stats dashboard
@@ -84,7 +87,7 @@ happening underneath — this is the section to point an interviewer at.
 | Layer | Cadence | Mechanism |
 |---|---|---|
 | Browser ↔ backend event push | Real-time (WebSocket) | Every newly-persisted event is broadcast immediately over `/ws/events`. If you're connected, you see it the instant it's written. |
-| New-IP discovery (AbuseIPDB `/blacklist`) | **Polled, ~every 6h** | Capped at 5 requests/day on the free tier (discovered live, not assumed — see `CLAUDE.md`). Each pull can return a large batch. |
+| New-IP discovery (AbuseIPDB `/blacklist`, falls back to Blocklist.de + CINS Army) | **Polled, ~every 6h** | Capped at 5 requests/day on the free tier (discovered live, not assumed — see `CLAUDE.md`) and shared across every consumer of the same API key, including local dev testing — realistic to exhaust before the live scheduler's turn. Falls back to free, unlimited feeds when that happens; every candidate either way still gets real per-IP data from AbuseIPDB's `/check`. |
 | Backlog drain (geolocate → score → persist → broadcast) | Polled, ~every 30s | Pops a few IPs at a time from the batch above, so the globe keeps animating between the infrequent `/blacklist` refreshes instead of going quiet for hours. |
 | Cloudflare Radar aggregate trends | Polled, ~every 2.5 min | Aggregate, not per-IP — feeds the stats dashboard only. |
 | Frontend stats dashboard | Polled, every 30s | Plain REST polling of `/stats/summary` and `/stats/timeseries` — no WebSocket needed for aggregate rollups. |
