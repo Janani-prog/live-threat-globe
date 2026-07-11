@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     cors_allowed_origins: str = "http://localhost:5173"
     database_url: str = "sqlite:///./cyberpulse.db"
     environment: str = "development"
+    # Off in tests (see backend/tests/conftest.py) so pytest runs don't spin
+    # up real background polling against live third-party APIs.
+    enable_scheduler: bool = True
 
     @property
     def poll_interval_seconds(self) -> int:

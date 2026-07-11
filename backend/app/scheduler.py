@@ -12,6 +12,7 @@ from app.geo.client import geolocate
 from app.geo.hashing import hash_ip
 from app.ingestion import abuseipdb, cloudflare_radar
 from app.ml import scorer
+from app.realtime.manager import manager
 
 logger = logging.getLogger(__name__)
 
@@ -129,23 +130,42 @@ def run_drain_cycle() -> int:
                 "Check daily quota guard hit (%d/day) — storing event without ML features", CHECK_DAILY_SAFE_MAX
             )
 
-        session.add(
-            Event(
-                ip_hash=ip_hash,
-                lat=geo["lat"] if geo else None,
-                lon=geo["lon"] if geo else None,
-                country=country,
-                asn=geo["asn"] if geo else None,
-                category=category_str,
-                confidence_source=evt.confidence_score,
-                risk_score=risk_score,
-                reported_at=evt.reported_at,
-            )
+        event_row = Event(
+            ip_hash=ip_hash,
+            lat=geo["lat"] if geo else None,
+            lon=geo["lon"] if geo else None,
+            country=country,
+            asn=geo["asn"] if geo else None,
+            category=category_str,
+            confidence_source=evt.confidence_score,
+            risk_score=risk_score,
+            reported_at=evt.reported_at,
         )
+        session.add(event_row)
         session.commit()
+
+        # expire_on_commit=False (see app.db.session) keeps these attributes
+        # readable post-commit without a second query.
+        payload = {
+            "id": event_row.id,
+            "ip_hash": event_row.ip_hash,
+            "lat": event_row.lat,
+            "lon": event_row.lon,
+            "country": event_row.country,
+            "asn": event_row.asn,
+            "category": event_row.category,
+            "confidence_source": event_row.confidence_source,
+            # May be None if no trained model exists yet or the /check quota
+            # guard was hit — the WebSocket payload serializes this as JSON
+            # null; consumers must treat that as "not yet scored", not 0.
+            "risk_score": event_row.risk_score,
+            "reported_at": event_row.reported_at.isoformat() if event_row.reported_at else None,
+            "ingested_at": event_row.ingested_at.isoformat() if event_row.ingested_at else None,
+        }
     finally:
         session.close()
 
+    manager.broadcast_from_thread(payload)
     return 1
 
 
