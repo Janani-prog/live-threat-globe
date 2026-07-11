@@ -22,9 +22,9 @@ CyberPulse — a live DDoS threat-intel visualization globe. Full context lives 
 8. **Flag scope creep.** If a phase is ballooning beyond what its ticket describes, stop and tell me before continuing, rather than silently building a bigger feature than scoped.
 
 ## Current phase
-Phase 0, Phase 1, Phase 3 (backend REST API + WebSocket), Phase 4 (frontend globe +
-real-time feed), Phase 5 (stats dashboard + polish), Phase 6 (offline ML showcase notebook),
-and Phase 7 (Dockerfile + Render blueprint, verified locally) are complete and committed.
+Phases 0, 1, 2, 3, 4, 5, 6, and 7 are all complete and committed. `app/ml/model.pkl` +
+`app/ml/model_card.md` exist and live events get a real, populated `risk_score`. Next up:
+Phase 8 (README/repo polish + resume framing).
 
 **Phase 7 has one manual step left that only the user can do:** create/connect a Render
 account and deploy via the Blueprint (`render.yaml`), filling in the `sync: false` secrets in
@@ -34,30 +34,11 @@ local `docker build && docker run`. Once deployed, do the actual smoke test from
 (open the public URL cold, confirm the globe loads and the WebSocket connects) and update this
 section.
 
-Next up: Phase 8 (README/repo polish + resume framing) — can proceed before the live deploy
-smoke test happens, since it's mostly independent.
-
 Note for Phase 6 (dataset substitution): the ticket specified CICDDoS2019, but that dataset
 is access-gated (UNB registration form or Kaggle credentials, neither a plain anonymous
 download) — confirmed live, not assumed. Per user's choice, `ml-research/offline_ddos_classifier.ipynb`
 uses **NSL-KDD** instead (genuinely open, verified download, DoS/probe/R2L/U2R labeled), with
 the substitution and full citation documented in the notebook itself.
-
-Phase 2 (ML live composite risk scorer) is **code-complete but the trained artifact is not
-yet generated** — blocked on an exhausted API quota, not on anything left to build. The rest
-of the backend and frontend (Phase 3's routes, the WebSocket broadcaster, the drain cycle,
-Phase 4/5's GlobeView/EventDetailPanel/StatsDashboard) already handle a missing/null
-`risk_score` gracefully by design (verified live, including in the browser), so this isn't
-blocking further work — later
-phases can proceed before Phase 2's artifact lands. To finish Phase 2:
-
-1. Wait until the `/blacklist` daily quota resets (2026-07-12 00:00 UTC — see below).
-2. From `backend/`, with `.env` populated: `./venv/Scripts/python.exe -m app.ml.training.train`
-3. This generates `app/ml/model.pkl` + `app/ml/model_card.md`. Review the model card's
-   held-out metrics and the model-vs-AbuseIPDB-confidence correlation note, then commit both
-   files as the final Phase 2 commit ("Phase 2: trained risk scorer artifact").
-4. Optionally re-run `scripts/run_ingest_once.py` afterward to confirm live events get a
-   populated, non-null `risk_score`.
 
 ### Important API constraints discovered during Phase 1/2 (verified live, not assumed)
 - AbuseIPDB's bulk `/blacklist` endpoint does not return category codes, total report count,
@@ -74,6 +55,26 @@ phases can proceed before Phase 2's artifact lands. To finish Phase 2:
   {DDoS(4), Port-Scan(14), Brute-Force(18)}) was reverted after a live pull showed it was
   ~100% positive (18 and 14 are bundled onto nearly every AbuseIPDB report) — see
   `app/ml/features.py` for the corrected definition (category 4 alone) and full rationale.
+
+### Phase 2 completion notes (training data sourcing + a caught bug)
+`/blacklist` being quota-blocked meant no fresh candidate IPs for training. Rather than use
+synthetic data, `app/ml/training/train.py` sources candidates from two free, non-rate-limited
+feeds instead (`app/ingestion/open_feeds.py`: Blocklist.de + CINS Army) while every candidate's
+actual feature data still comes from a real AbuseIPDB `/check` call — no invented feature
+values or labels, only the candidate-discovery mechanism changed. This also fixed a real
+selection-bias problem: `/blacklist` is pre-filtered to IPs AbuseIPDB already has heavy report
+history on, which is what skewed the first training pull to ~100% positive.
+
+To retrain later (e.g. once real `/blacklist` access matters more), either keep using
+`open_feeds.sample_candidate_ips()` or swap back to `abuseipdb.fetch_blacklist()` in
+`pull_raw_rows()` — both are real AbuseIPDB-backed data either way.
+
+**Caught before shipping:** the first open-feeds run hit 100.00% held-out accuracy — a red
+flag, not a win. Cause: `category_4` (the proxy label's own definition) was also included as
+a model input feature, so the model was reading its own answer off one column. Fixed in
+`app/ml/features.py` by excluding every ID in `PROXY_LABEL_CATEGORY_IDS` from
+`CATEGORY_FEATURE_COLUMNS`. If the proxy label definition ever changes again, make sure this
+exclusion still covers whatever category IDs define it.
 
 ## Naming note
 "CyberPulse" is only an internal working title used in these docs/commit messages/repo folder name for organizational convenience. **The deployed product UI must not display any product name, logo, or wordmark** . Do not add a title/header/logo to the app itself just because the docs need a label to refer to the project by.
