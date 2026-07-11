@@ -65,7 +65,17 @@ NUMERIC_FEATURE_COLUMNS = [
     "usage_type_other",
     "country_risk_prior",
 ]
-CATEGORY_FEATURE_COLUMNS = [f"category_{cid}" for cid in CATEGORY_IDS_SORTED]
+# Category IDs that define the proxy label are deliberately excluded from
+# the feature set. Including category_4 as both an input feature and the
+# exact definition of proxy_label() caused severe label leakage in an
+# earlier training run (100.00% held-out accuracy — the model was just
+# reading its own answer key off one input column, not learning anything).
+# The other 22 categories remain legitimate features: co-occurring tags
+# like "brute_force" or "port_scan" are real signal for DDoS-relevance
+# without being a restatement of the label itself.
+CATEGORY_FEATURE_COLUMNS = [
+    f"category_{cid}" for cid in CATEGORY_IDS_SORTED if cid not in PROXY_LABEL_CATEGORY_IDS
+]
 FEATURE_COLUMNS = NUMERIC_FEATURE_COLUMNS + CATEGORY_FEATURE_COLUMNS
 
 

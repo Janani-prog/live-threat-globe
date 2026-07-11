@@ -88,6 +88,7 @@ class CheckResult:
         usage_type: str | None,
         last_reported_at: datetime.datetime | None,
         abuse_confidence_score: float,
+        country: str | None = None,
     ):
         self.ip = ip
         self.total_reports = total_reports
@@ -96,6 +97,7 @@ class CheckResult:
         self.usage_type = usage_type
         self.last_reported_at = last_reported_at
         self.abuse_confidence_score = abuse_confidence_score
+        self.country = country
 
 
 def check_ip(ip: str) -> CheckResult | None:
@@ -154,4 +156,5 @@ def check_ip(ip: str) -> CheckResult | None:
         usage_type=data.get("usageType"),
         last_reported_at=last_reported_at,
         abuse_confidence_score=data.get("abuseConfidenceScore", 0),
+        country=data.get("countryCode"),
     )

@@ -26,11 +26,10 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from app.ingestion import abuseipdb
+from app.ingestion import abuseipdb, open_feeds
 from app.ml.features import FEATURE_COLUMNS, build_feature_dict, proxy_label
 
-TRAINING_BATCH_SIZE = 300
-CONFIDENCE_MINIMUM = 50
+TRAINING_BATCH_SIZE = 250
 COUNTRY_PRIOR_SMOOTHING = 5.0
 
 MODEL_PATH = Path(__file__).resolve().parents[1] / "model.pkl"
@@ -38,20 +37,30 @@ MODEL_CARD_PATH = Path(__file__).resolve().parents[1] / "model_card.md"
 
 
 def pull_raw_rows() -> list[dict]:
-    """Pull a batch of IPs from /blacklist, then fetch rich per-IP data from
-    /check for each — /check is the only endpoint with category/report data.
+    """Fetch candidate IPs from open, non-rate-limited feeds (Blocklist.de +
+    CINS Army), then enrich each with a real AbuseIPDB /check call — /check
+    is the only endpoint with category/report data, and unlike /blacklist
+    (capped at 5 req/day, see CLAUDE.md) it has a generous 1,000/day quota.
+
+    This also diversifies the candidate pool relative to pulling straight
+    from AbuseIPDB's own /blacklist: that endpoint is pre-filtered to IPs
+    it already has heavy report history on, which skewed an earlier
+    training pull to ~100% positive on the DDoS-category proxy label (see
+    features.py). These feeds are curated independently, so some checked
+    IPs turn out to have sparse/no AbuseIPDB history — real negative-
+    leaning examples, not synthetic ones.
     """
-    candidates = abuseipdb.fetch_blacklist(limit=TRAINING_BATCH_SIZE, confidence_minimum=CONFIDENCE_MINIMUM)
-    logger.info("Pulled %d candidate IPs from /blacklist", len(candidates))
+    candidate_ips = open_feeds.sample_candidate_ips(TRAINING_BATCH_SIZE, seed=42)
+    logger.info("Sampled %d candidate IPs from open feeds", len(candidate_ips))
 
     rows = []
-    for i, evt in enumerate(candidates):
-        result = abuseipdb.check_ip(evt.ip)
+    for i, ip in enumerate(candidate_ips):
+        result = abuseipdb.check_ip(ip)
         if result is None:
             continue
         rows.append(
             {
-                "country": evt.country,
+                "country": result.country,
                 "total_reports": result.total_reports,
                 "num_distinct_users": result.num_distinct_users,
                 "category_ids": result.category_ids,
@@ -61,7 +70,7 @@ def pull_raw_rows() -> list[dict]:
             }
         )
         if (i + 1) % 50 == 0:
-            logger.info("  ...checked %d/%d", i + 1, len(candidates))
+            logger.info("  ...checked %d/%d", i + 1, len(candidate_ips))
 
     logger.info("Collected %d rows with /check data", len(rows))
     return rows
@@ -176,9 +185,28 @@ Logistic regression classifier estimating a 0-100 DDoS-relevance risk score
 per ingested IP, trained on a live pull of AbuseIPDB data.
 
 - **Trained at:** {trained_at}
-- **Training samples:** {n_samples} (pulled live from AbuseIPDB `/blacklist` + `/check`)
+- **Training samples:** {n_samples} (candidate IPs sampled live from Blocklist.de +
+  CINS Army, each enriched with a real AbuseIPDB `/check` call)
 - **Positive class rate:** {positive_rate:.1%}
 - **Algorithm:** `LogisticRegression(class_weight="balanced")` on standardized features
+
+## Candidate-IP sourcing (deviation from the original plan, flagged and confirmed)
+AbuseIPDB's `/blacklist` endpoint — the originally planned candidate-IP
+source — turned out to be capped at 5 requests/day on the free tier
+(confirmed live via a 429: "Daily rate limit of 5 requests exceeded for
+this endpoint"; see `CLAUDE.md`), which blocked pulling a fresh training
+batch on demand. Candidate IPs for this run were sampled instead from two
+free, non-rate-limited reputation feeds — [Blocklist.de](https://www.blocklist.de/)
+and the [CINS Army list](https://cinsscore.com/) — with every candidate's
+actual feature data (report counts, categories, usage type, country) still
+coming from a real AbuseIPDB `/check` call, exactly as before. No feature
+values or labels are synthetic; only the discovery mechanism for *which*
+IPs to look up changed. This also turned out to be a methodological
+improvement, not just a workaround: `/blacklist` is pre-filtered to IPs
+AbuseIPDB already has heavy report history on, which is what skewed an
+earlier pull to ~100% positive (see the proxy-label section below) — these
+independently-curated feeds include IPs AbuseIPDB has sparse or no data on,
+giving genuine label diversity.
 
 ## Proxy label (no live ground truth exists)
 Positive class = AbuseIPDB report category 4 (DDoS Attack) present on the IP.
@@ -224,6 +252,17 @@ pass-through of AbuseIPDB's own score (PRD success criterion #2).
 
 ## Feature coefficients (full-data fit, standardized inputs, sorted by |coef|)
 {coef_lines}
+
+## Label leakage check (methodology note)
+An earlier run of this pipeline hit 100.00% held-out accuracy — a red flag,
+not a good result. The cause: `category_4` was included as both a model
+*input* feature and the exact definition of `proxy_label()`, so the model
+was trivially reading its own answer off one column instead of learning
+anything. Fixed by excluding every category ID in `PROXY_LABEL_CATEGORY_IDS`
+from `CATEGORY_FEATURE_COLUMNS` (see `app/ml/features.py`) — the other 22
+categories remain legitimate features, since co-occurring tags are real
+signal without restating the label. This run's ~76% accuracy with a mixed
+confusion matrix is the trustworthy result of that fix, not a regression.
 
 ## Known limitations
 - Small free-tier training pull ({n_samples} samples) — a resume-scale
