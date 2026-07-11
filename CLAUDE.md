@@ -22,7 +22,14 @@ CyberPulse — a live DDoS threat-intel visualization globe. Full context lives 
 8. **Flag scope creep.** If a phase is ballooning beyond what its ticket describes, stop and tell me before continuing, rather than silently building a bigger feature than scoped.
 
 ## Current phase
-Start at Phase 0 unless told otherwise. Update this section yourself as phases complete, so future sessions know where things stand.
+Phase 0 and Phase 1 are complete and committed. Next up: Phase 2 (ML live composite risk scorer).
+
+Note for Phase 2: AbuseIPDB's bulk `/blacklist` endpoint (used in Phase 1) does not return
+category codes, total report count, or distinct-reporter count — confirmed against a live
+call. Those fields only come from the per-IP `/check?verbose` endpoint, which shares a much
+tighter free-tier quota. Phase 2's feature engineering must call `/check` only for newly-seen
+IPs (the ingestion cycle already diffs against already-seen `ip_hash`es), not the whole
+blacklist, to stay within quota.
 
 ## Naming note
 "CyberPulse" is only an internal working title used in these docs/commit messages/repo folder name for organizational convenience. **The deployed product UI must not display any product name, logo, or wordmark** . Do not add a title/header/logo to the app itself just because the docs need a label to refer to the project by.
