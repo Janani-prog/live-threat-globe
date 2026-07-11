@@ -9,31 +9,49 @@
 ### 2. High-Level Architecture
 
 ```
-                         ┌─────────────────────────────────────────┐
-                         │           Single Web Service             │
-                         │        (Render / Fly.io free tier)        │
-                         │                                           │
-  ┌───────────────┐      │  ┌─────────────┐   ┌──────────────────┐  │
-  │ AbuseIPDB API │◄─────┼──┤ Ingestion   │   │  FastAPI app     │  │
-  └───────────────┘      │  │ Scheduler   │──►│  - REST routes   │  │
-                         │  │ (APScheduler│   │  - WebSocket hub │  │
-  ┌───────────────┐      │  │  background │   │  - Static files  │◄─┼── React build (globe UI)
-  │ Cloudflare     │◄────┼──┤  job, async)│   │    (Vite output) │  │
-  │ Radar API      │      │  └──────┬──────┘   └────────┬─────────┘  │
-  └───────────────┘      │         │                    │            │
-                         │         ▼                    ▼            │
-  ┌───────────────┐      │  ┌─────────────┐   ┌──────────────────┐  │
-  │ Geolocation    │◄────┼──┤ ML Scorer   │   │  SQLite (file)   │  │
-  │ (ip-api.com)   │      │  │ (scikit-    │   │  - events        │  │
-  └───────────────┘      │  │  learn      │   │  - geo cache     │  │
-                         │  │  pickle)    │   │  - stats rollups │  │
-                         │  └─────────────┘   └──────────────────┘  │
-                         └─────────────────────────────────────────┘
-                                          │
-                                          ▼
-                              Browser client (WebSocket + REST)
-                              react-globe.gl + charting
+┌────────────────────────────────────────────────────────────────┐
+│                  Threat Intelligence Sources                   │
+│                                                                │
+│ AbuseIPDB /blacklist + /check   (malicious IP reports)         │
+│ Blocklist.de + CINS Army        (fallback IP feed)             │
+│ Cloudflare Radar                (aggregate attack trends)      │
+│ ip-api.com                      (IP geolocation)               │
+└────────────────────────────────────────────────────────────────┘
+
+                                 │
+                                 ▼
+┌────────────────────────────────────────────────────────────────┐
+│           Ingestion & Scoring Pipeline (APScheduler)           │
+│                                                                │
+│ 1. Discover candidate IPs from the sources above               │
+│ 2. Geolocate + enrich each IP with report metadata             │
+│ 3. Score DDoS relevance with a trained ML model                │
+│ 4. Persist to SQLite and broadcast over WebSocket              │
+└────────────────────────────────────────────────────────────────┘
+
+                                 │
+                                 ▼
+┌────────────────────────────────────────────────────────────────┐
+│                      FastAPI Application                       │
+│                                                                │
+│ REST API        /events, /stats, /health                       │
+│ WebSocket hub    real-time event streaming to clients          │
+│ Static hosting   serves the built React frontend               │
+└────────────────────────────────────────────────────────────────┘
+
+                                 │  WebSocket + REST
+                                 ▼
+┌────────────────────────────────────────────────────────────────┐
+│                 Browser Client  (React + Vite)                 │
+│                                                                │
+│ 3D interactive globe          react-globe.gl                   │
+│ Live event stream              WebSocket subscriber            │
+│ Statistics dashboard          Recharts                         │
+└────────────────────────────────────────────────────────────────┘
 ```
+
+All four stages run inside a single Docker container (one process, one origin) — no separate
+database service, message broker, or frontend host, per the guiding constraints above.
 
 ### 3. Backend (FastAPI)
 
